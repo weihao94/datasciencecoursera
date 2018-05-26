@@ -82,9 +82,11 @@ q5 <- aggregate(data=q5,steps~interval,FUN="max")
 ```
 ##6: Code to describe and show a strategy for imputing missing data
 There are multiple strategies to deal with multiple value imputations. These include:
+
 1. Constant value imputations
 2. Mean/mode value substitutions
 3. Regression model value imputations
+
 For the purpose of this question, the mean/modal value substitution will be implemented to impute missing values. This means using the mean values to substitute the missing values in the original data set.
 Furthermore, before any sort of imputation, we first try to understand what are the distributions of missing values by date and interval:
 ```{r, echo = TRUE}
