@@ -1,0 +1,37 @@
+---
+title: "My first leaflet"
+author: "Wei Hao Khoong"
+date: "26 May 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We first create a leaflet object, and then add markers:
+```{r echo=TRUE}
+library(leaflet)
+my_map <- leaflet() %>%
+  addTiles()
+
+my_map <- my_map %>%
+  addMarkers(lat=1.3521, lng=103.8198,
+             popup="Singapore")
+my_map
+```
+
+## Mapping Clusters
+
+```{r echo=TRUE}
+df <- data.frame(lat=runif(100, min=1.33, max = 1.37 ),
+                 lng=runif(100, min=103.5, max = 104 ))
+
+df %>%
+leaflet() %>%
+addTiles() %>%  
+addMarkers(clusterOptions = markerClusterOptions())
+```
+
