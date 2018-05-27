@@ -1,0 +1,122 @@
+---
+title: "Predicting the Manner of Exercising"
+author: "Wei Hao Khoong"
+date: "25 May 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Abstract
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this report, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise.
+
+# Data
+
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har.
+
+# Retrieving & Preparing Data
+
+```{r prepData, cache=TRUE}
+library(caret)
+training <- read.csv("pml-training.csv", na.strings=c("","NA", "#DIV/0!"))
+testing <- read.csv("pml-testing.csv", na.strings=c("","NA", "#DIV/0!"))
+
+# Remove columns that are not predictors, where the first 5 columns include non-predicting variables
+trainingPs <- training[,-(1:5)]
+
+# Remove predictors with data that does not vary
+trainingPs <- trainingPs[,-nearZeroVar(trainingPs, saveMetrics = FALSE)]
+
+# Remove columns that have NA values
+rem.columns <- names(which(colSums(is.na(trainingPs))>0))
+trainingPs <- trainingPs[, !(names(trainingPs) %in% rem.columns)]
+```
+# Cross Validation
+
+We now split the cleaned data into a training and validation set:
+```{r CrossVal, cache=TRUE}
+inTrain <- createDataPartition(y=trainingPs$classe, p=.7, list= FALSE)
+trainingSet <- trainingPs[inTrain,]
+validationSet <- trainingPs[-inTrain,]
+```
+
+## Summary of training and validation datasets
+```{r CrossValSummary, cache=TRUE}
+CrossValSummary <- rbind(Original_data = dim(trainingPs), training_subset = dim(trainingSet), validation_subset = dim(validationSet))
+colnames(CrossValSummary) <- c("Observations", "Predictors")
+CrossValSummary
+```
+
+# Our Models
+
+Next, we construct two models: random forest (RF) and generalized boosting model (GBM). Note that both are tree-based classification models from the caret package.
+```{r rfMod, cache=TRUE, results="hide"}
+library(randomForest)
+library(e1071)
+library(gbm)
+set.seed(111)
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+modFit <- train(classe~., data=trainingSet, method="rf", trControl=controlRF)
+modFit$finalModel
+controlGBM <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+modFit_gbm <- train(classe~., data=trainingSet, method="gbm", trControl = controlGBM, verbose = FALSE)
+modFit_gbm$finalModel
+```
+The accuracies of our models are: 0.9976 for RF and 0.987 for GBM. In particular, the RF model offers an out-of sample error rate of 0.18%.
+
+# Model Accuracy
+
+To evaluate the two models, we will use the validation data subset to predict the classification and compare the predicted classification with the true classification. 
+
+## Random Forest Model Prediction Accuracy
+
+```{r predictValid_rf}
+Predict_rf <- predict(modFit, validationSet)
+CM_RF <- confusionMatrix(Predict_rf, validationSet$classe)
+CM_RF$overall
+# plot matrix results
+plot(CM_RF$table, col = CM_RF$byClass, 
+     main = paste("Random Forest - Accuracy =",
+                  round(CM_RF$overall['Accuracy'], 4)))
+```
+
+We note that the RF model has the best accuracy of the 2 models.
+
+## GBM Model Prediction Accuracy
+```{r predictValid_gbm}
+Predict_gbm <- predict(modFit_gbm, validationSet)
+CM_GBM <- confusionMatrix(Predict_gbm, validationSet$classe)
+CM_GBM$overall
+# plot matrix results
+plot(CM_GBM$table, col = CM_GBM$byClass, 
+     main = paste("GBM - Accuracy =", round(CM_GBM$overall['Accuracy'], 4)))
+```
+
+The GBM model is not as accurate as the RF model, though sufficiently high.
+
+We compare the predictions across models in the following table:
+```{r predictValid compare}
+CM_RF$table
+CM_GBM$table
+```
+
+From this, we find that the RF method was better across all classifications.
+
+# Testing Dataset Result Prediction
+Lastly, we proceed with predicting using the RF method:
+```{r predict new classe}
+modelPredictions <- predict(modFit, testing)
+cbind(testing[,1:2], classe = modelPredictions)
+modelPredictions
+```
